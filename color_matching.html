@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Match — Puzzle Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1a1a2e; --bg2: #16213e;
+    --card: rgba(255,255,255,0.07); --card-b: rgba(255,255,255,0.12);
+    --text: #f0f0ff; --text2: rgba(240,240,255,0.55);
+    --accent: #e94560; --purple: #7c5cbf; --teal: #00d4aa;
+  }
+  body { font-family:'Nunito',sans-serif; background:var(--bg); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .screen { display:none; width:100%; max-width:440px; padding:1rem; flex-direction:column; align-items:center; gap:.9rem; position:relative; z-index:1; }
+  .screen.active { display:flex; }
+  #particles { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .pt { position:absolute; border-radius:50%; opacity:.12; animation:pfloat linear infinite; }
+  @keyframes pfloat { 0%{transform:translateY(110vh);opacity:0} 10%{opacity:.12} 90%{opacity:.12} 100%{transform:translateY(-80px);opacity:0} }
+
+  .logo { font-size:54px; font-weight:900; color:var(--text); text-align:center; line-height:1; text-shadow:0 0 40px rgba(124,92,191,.7); }
+  .logo span { color:var(--teal); }
+  .dots { display:flex; gap:9px; justify-content:center; }
+  .dot { width:16px; height:16px; border-radius:50%; animation:dpulse 1.4s ease-in-out infinite; }
+  @keyframes dpulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.5)} }
+
+  .card { background:var(--card); border:1px solid var(--card-b); border-radius:20px; padding:1.3rem 1.5rem; width:100%; backdrop-filter:blur(10px); }
+  .card-title { font-size:11px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:var(--teal); margin-bottom:.9rem; }
+  .step { display:flex; align-items:center; gap:11px; margin-bottom:9px; }
+  .step-num { width:27px; height:27px; border-radius:50%; background:var(--purple); color:#fff; font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .step-txt { font-size:14px; color:var(--text2); }
+
+  .btn-play { width:100%; padding:17px; border-radius:16px; border:none; background:linear-gradient(135deg,var(--accent),var(--purple)); color:#fff; font-family:'Nunito',sans-serif; font-size:20px; font-weight:900; cursor:pointer; letter-spacing:1px; box-shadow:0 8px 30px rgba(233,69,96,.4); transition:transform .13s,box-shadow .13s; }
+  .btn-play:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(233,69,96,.5); }
+  .btn-play:active { transform:scale(.97); }
+
+  .top-bar { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; width:100%; align-items:center; }
+  .stat { background:var(--card); border:1px solid var(--card-b); border-radius:13px; padding:9px 12px; text-align:center; }
+  .stat-lbl { font-size:10px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--text2); }
+  .stat-val { font-size:22px; font-weight:900; color:var(--text); }
+  .lvl-badge { background:linear-gradient(135deg,var(--purple),var(--accent)); border-radius:12px; padding:8px 18px; text-align:center; }
+  .lvl-lbl { font-size:10px; font-weight:800; letter-spacing:2px; color:rgba(255,255,255,.65); }
+  .lvl-val { font-size:20px; font-weight:900; color:#fff; }
+
+  .timer-wrap { width:100%; height:7px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden; }
+  #timer-bar { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--teal),#4cc9f0); transition:width .12s linear,background .4s; width:100%; }
+  #timer-bar.warn { background:linear-gradient(90deg,#f4a261,var(--accent)); }
+
+  .target-card { background:var(--card); border:1px solid var(--card-b); border-radius:18px; padding:.9rem 1.4rem; width:100%; text-align:center; }
+  .target-lbl { font-size:11px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:9px; }
+  .swatches { display:flex; justify-content:center; gap:10px; }
+  .swatch { width:46px; height:46px; border-radius:12px; border:2px solid rgba(255,255,255,.18); }
+  .swatch.pop { animation:spop .35s; }
+  @keyframes spop { 0%{transform:scale(1)} 50%{transform:scale(1.25)} 100%{transform:scale(1)} }
+
+  .prog-wrap { width:100%; }
+  .prog-track { width:100%; height:8px; background:rgba(255,255,255,.07); border-radius:99px; overflow:hidden; margin-bottom:4px; }
+  #prog-fill { height:100%; background:linear-gradient(90deg,var(--teal),#4cc9f0); border-radius:99px; transition:width .4s; width:0%; }
+  .prog-txt { font-size:11px; color:var(--text2); text-align:right; }
+  #combo-txt { font-size:13px; font-weight:800; color:#ffd166; text-align:center; min-height:18px; letter-spacing:1px; }
+
+  #grid { display:grid; gap:9px; width:100%; }
+  .tile { aspect-ratio:1; border-radius:13px; cursor:pointer; border:3px solid transparent; transition:transform .12s,border-color .12s,box-shadow .12s; position:relative; overflow:hidden; }
+  .tile::after { content:''; position:absolute; inset:0; background:rgba(255,255,255,0); transition:background .1s; border-radius:10px; }
+  .tile:hover::after { background:rgba(255,255,255,.14); }
+  .tile:hover { transform:scale(1.07); }
+  .tile.sel { border-color:rgba(255,255,255,.9); transform:scale(1.09); }
+  .tile.shake { animation:tshake .32s; }
+  @keyframes tshake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+  .tile.vanish { animation:tvanish .3s forwards; pointer-events:none; }
+  @keyframes tvanish { 0%{transform:scale(1.1);opacity:1} 100%{transform:scale(0);opacity:0} }
+
+  #toast { position:fixed; top:16px; left:50%; transform:translateX(-50%) translateY(-70px); background:rgba(10,10,30,.9); color:#fff; padding:9px 22px; border-radius:99px; font-size:14px; font-weight:800; backdrop-filter:blur(8px); transition:transform .28s cubic-bezier(.34,1.56,.64,1); z-index:200; border-left:3px solid var(--teal); white-space:nowrap; }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+
+  .overlay { display:none; position:fixed; inset:0; background:rgba(5,5,20,.82); backdrop-filter:blur(8px); align-items:center; justify-content:center; z-index:100; }
+  .overlay.on { display:flex; }
+  .res-card { background:var(--bg2); border:1px solid var(--card-b); border-radius:26px; padding:2.2rem 2rem; text-align:center; max-width:310px; width:90%; animation:cin .38s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes cin { from{transform:scale(.65);opacity:0} to{transform:scale(1);opacity:1} }
+  .res-icon { font-size:60px; margin-bottom:.3rem; }
+  .res-title { font-size:27px; font-weight:900; color:var(--text); margin-bottom:.2rem; }
+  .res-sub { font-size:14px; color:var(--text2); margin-bottom:1.3rem; }
+  .res-stats { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:1.3rem; }
+  .res-stat { background:rgba(255,255,255,.05); border-radius:13px; padding:11px; }
+  .rs-lbl { font-size:10px; color:var(--text2); font-weight:800; letter-spacing:1px; }
+  .rs-val { font-size:24px; font-weight:900; color:var(--text); }
+  .btn-next { width:100%; padding:15px; border-radius:13px; border:none; background:linear-gradient(135deg,var(--teal),#4cc9f0); color:#1a1a2e; font-family:'Nunito',sans-serif; font-size:17px; font-weight:900; cursor:pointer; margin-bottom:9px; transition:transform .13s; }
+  .btn-next:hover { transform:translateY(-2px); }
+  .btn-menu2 { background:none; border:1px solid var(--card-b); border-radius:13px; padding:11px; width:100%; color:var(--text2); font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; cursor:pointer; }
+  .btn-menu2:hover { background:var(--card); }
+</style>
+</head>
+<body>
+
+<div id="particles"></div>
+<div id="toast"></div>
+
+<!-- MENU -->
+<div class="screen active" id="scr-menu">
+  <div><div class="logo">Color<br><span>Match</span></div></div>
+  <div class="dots" id="menu-dots"></div>
+  <div class="card">
+    <div class="card-title">How to Play</div>
+    <div class="step"><div class="step-num">1</div><div class="step-txt">See the target color shown above the grid</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-txt">Tap exactly 3 tiles of that color to clear them</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-txt">Clear ALL tiles before the timer runs out!</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-txt">Chain matches for combo bonus points</div></div>
+  </div>
+  <button class="btn-play" onclick="startGame()">PLAY NOW</button>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="scr-game">
+  <div class="top-bar">
+    <div class="stat"><div class="stat-lbl">Score</div><div class="stat-val" id="s-score">0</div></div>
+    <div class="lvl-badge"><div class="lvl-lbl">LEVEL</div><div class="lvl-val" id="s-level">1</div></div>
+    <div class="stat"><div class="stat-lbl">Best</div><div class="stat-val" id="s-best">0</div></div>
+  </div>
+  <div class="timer-wrap"><div id="timer-bar"></div></div>
+  <div class="target-card">
+    <div class="target-lbl">Select 3 tiles of this color</div>
+    <div class="swatches" id="swatches"></div>
+  </div>
+  <div class="prog-wrap">
+    <div class="prog-track"><div id="prog-fill"></div></div>
+    <div class="prog-txt" id="prog-txt">0 / 0</div>
+  </div>
+  <div id="combo-txt"></div>
+  <div id="grid"></div>
+</div>
+
+<!-- WIN -->
+<div class="overlay" id="ov-win">
+  <div class="res-card">
+    <div class="res-icon">🎉</div>
+    <div class="res-title">Level Clear!</div>
+    <div class="res-sub" id="win-msg">Amazing!</div>
+    <div class="res-stats">
+      <div class="res-stat"><div class="rs-lbl">SCORE</div><div class="rs-val" id="win-score">0</div></div>
+      <div class="res-stat"><div class="rs-lbl">BONUS</div><div class="rs-val" id="win-bonus">+0</div></div>
+    </div>
+    <button class="btn-next" onclick="nextLevel()">Next Level →</button>
+    <button class="btn-menu2" onclick="goMenu()">Main Menu</button>
+  </div>
+</div>
+
+<!-- LOSE -->
+<div class="overlay" id="ov-lose">
+  <div class="res-card">
+    <div class="res-icon">⏰</div>
+    <div class="res-title">Time's Up!</div>
+    <div class="res-sub">Try again to beat your score</div>
+    <div class="res-stats">
+      <div class="res-stat"><div class="rs-lbl">SCORE</div><div class="rs-val" id="lose-score">0</div></div>
+      <div class="res-stat"><div class="rs-lbl">BEST</div><div class="rs-val" id="lose-best">0</div></div>
+    </div>
+    <button class="btn-next" style="background:linear-gradient(135deg,var(--accent),var(--purple));color:#fff" onclick="retryLevel()">Try Again</button>
+    <button class="btn-menu2" onclick="goMenu()">Main Menu</button>
+  </div>
+</div>
+
+<script>
+const PALETTE=['#e94560','#f4a261','#ffd166','#06d6a0','#4cc9f0','#7c5cbf','#f72585','#80b918'];
+
+// Each level: colors = how many distinct colors, cols = grid columns
+// Grid will always have exactly (colors * 3) tiles so everything clears perfectly
+const LEVELS=[
+  {colors:3,cols:3,time:60},
+  {colors:3,cols:3,time:50},
+  {colors:4,cols:4,time:65},  // 12 tiles in 4x3 grid
+  {colors:4,cols:4,time:55},
+  {colors:5,cols:4,time:65},  // 15 tiles
+  {colors:5,cols:4,time:55},
+  {colors:6,cols:4,time:70},  // 18 tiles
+  {colors:6,cols:5,time:60},
+  {colors:7,cols:5,time:65},  // 21 tiles
+  {colors:7,cols:5,time:52},
+];
+
+let G={level:1,score:0,best:0,tiles:[],selected:[],target:null,cleared:0,total:0,combo:0,tMax:60,tLeft:60,ticker:null,running:false};
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+function cfg(){return LEVELS[Math.min(G.level-1,LEVELS.length-1)];}
+
+function makeTiles(numColors){
+  const colors=shuffle([...PALETTE]).slice(0,numColors);
+  // Each color gets exactly 3 tiles — total always divisible by 3
+  let pool=[];
+  colors.forEach(hex=>{pool.push(hex);pool.push(hex);pool.push(hex);});
+  shuffle(pool);
+  return {tiles:pool.map((hex,i)=>({id:i,hex,sel:false,gone:false})),colors};
+}
+
+function showScr(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+
+function initMenu(){
+  const wrap=document.getElementById('menu-dots');
+  wrap.innerHTML='';
+  PALETTE.forEach((hex,i)=>{
+    const d=document.createElement('div');
+    d.className='dot';d.style.background=hex;d.style.animationDelay=(i*0.13)+'s';
+    wrap.appendChild(d);
+  });
+  buildParticles();
+}
+
+function buildParticles(){
+  const wrap=document.getElementById('particles');wrap.innerHTML='';
+  for(let i=0;i<16;i++){
+    const p=document.createElement('div');p.className='pt';
+    const sz=8+Math.random()*18;
+    p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${PALETTE[Math.floor(Math.random()*PALETTE.length)]};animation-duration:${7+Math.random()*9}s;animation-delay:${Math.random()*8}s;`;
+    wrap.appendChild(p);
+  }
+}
+
+function startGame(){G.level=1;G.score=0;buildLevel();showScr('scr-game');}
+
+function buildLevel(){
+  clearInterval(G.ticker);
+  document.getElementById('ov-win').classList.remove('on');
+  document.getElementById('ov-lose').classList.remove('on');
+
+  const c=cfg();
+  const {tiles,colors}=makeTiles(c.colors);
+
+  G.tiles=tiles;
+  G.total=tiles.length/3;  // number of groups to clear
+  G.cleared=0;
+  G.selected=[];
+  G.combo=0;
+  G.tMax=c.time;
+  G.tLeft=c.time;
+  G.running=true;
+  G.target=colors[Math.floor(Math.random()*colors.length)];
+
+  renderAll();
+  startTimer();
+}
+
+function renderAll(){
+  const c=cfg();
+  document.getElementById('s-score').textContent=G.score;
+  document.getElementById('s-best').textContent=G.best;
+  document.getElementById('s-level').textContent=G.level;
+
+  const pct=G.total>0?Math.round(G.cleared/G.total*100):0;
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-txt').textContent=G.cleared+' / '+G.total+' groups cleared';
+
+  // Target swatches
+  const sw=document.getElementById('swatches');sw.innerHTML='';
+  for(let i=0;i<3;i++){
+    const d=document.createElement('div');
+    d.className='swatch';d.style.background=G.target;d.style.boxShadow=`0 0 14px ${G.target}99`;
+    sw.appendChild(d);
+    setTimeout(()=>{d.classList.add('pop');setTimeout(()=>d.classList.remove('pop'),350);},i*55);
+  }
+
+  // Grid — only active (not gone) tiles
+  const activeTiles=G.tiles.filter(t=>!t.gone);
+  const cols=Math.ceil(Math.sqrt(activeTiles.length)) || c.cols;
+  // Use fixed cols from level config for consistent layout
+  const gridCols=c.cols;
+
+  const grid=document.getElementById('grid');
+  grid.style.gridTemplateColumns=`repeat(${gridCols},1fr)`;
+  grid.innerHTML='';
+
+  // Render all tiles including gone ones as invisible placeholders? No — just render active
+  activeTiles.forEach(tile=>{
+    const div=document.createElement('div');
+    div.className='tile'+(tile.sel?' sel':'');
+    div.style.background=tile.hex;
+    div.style.boxShadow=tile.sel?`0 0 16px ${tile.hex}aa`:'none';
+    div.dataset.id=tile.id;
+    div.onclick=()=>tapTile(tile.id);
+    grid.appendChild(div);
+  });
+}
+
+function tapTile(id){
+  if(!G.running)return;
+  const tile=G.tiles[id];
+  if(!tile||tile.gone)return;
+
+  if(tile.sel){
+    tile.sel=false;
+    G.selected=G.selected.filter(x=>x!==id);
+    renderAll();return;
+  }
+
+  if(tile.hex!==G.target){
+    G.combo=0;document.getElementById('combo-txt').textContent='';
+    const el=document.querySelector(`[data-id="${id}"]`);
+    if(el){el.classList.add('shake');setTimeout(()=>el.classList.remove('shake'),320);}
+    toast('Wrong color! -2s','#e94560');
+    G.tLeft=Math.max(2,G.tLeft-2);
+    return;
+  }
+
+  tile.sel=true;G.selected.push(id);
+  renderAll();
+
+  if(G.selected.length===3){
+    G.running=false;
+    setTimeout(doMatch,220);
+  }
+}
+
+function doMatch(){
+  // Animate vanish on selected tiles
+  G.selected.forEach(sid=>{
+    const el=document.querySelector(`[data-id="${sid}"]`);
+    if(el)el.classList.add('vanish');
+  });
+
+  setTimeout(()=>{
+    G.selected.forEach(sid=>{G.tiles[sid].gone=true;G.tiles[sid].sel=false;});
+    G.selected=[];
+    G.cleared++;
+    G.combo++;
+
+    const base=100,comboBonus=G.combo>1?(G.combo-1)*60:0,timeBonus=Math.floor(G.tLeft*0.4);
+    const pts=base+comboBonus+timeBonus;
+    G.score+=pts;
+    if(G.score>G.best)G.best=G.score;
+
+    if(G.combo>1){
+      document.getElementById('combo-txt').textContent=`${G.combo}x COMBO! +${pts}`;
+      toast(`${G.combo}x Combo!`,'#ffd166');
+    } else {
+      document.getElementById('combo-txt').textContent=`+${pts}`;
+      setTimeout(()=>{document.getElementById('combo-txt').textContent='';},700);
+    }
+
+    const remaining=G.tiles.filter(t=>!t.gone);
+    if(remaining.length===0){
+      G.running=false;clearInterval(G.ticker);
+      setTimeout(showWin,350);
+    } else {
+      const remColors=[...new Set(remaining.map(t=>t.hex))];
+      G.target=remColors[Math.floor(Math.random()*remColors.length)];
+      G.running=true;
+      renderAll();
+    }
+  },310);
+}
+
+function startTimer(){
+  clearInterval(G.ticker);updateTimer();
+  G.ticker=setInterval(()=>{
+    G.tLeft=Math.max(0,G.tLeft-0.1);updateTimer();
+    if(G.tLeft<=0){G.running=false;clearInterval(G.ticker);showLose();}
+  },100);
+}
+
+function updateTimer(){
+  const pct=Math.max(0,(G.tLeft/G.tMax)*100);
+  const bar=document.getElementById('timer-bar');
+  bar.style.width=pct+'%';
+  if(pct<30)bar.classList.add('warn');else bar.classList.remove('warn');
+}
+
+function showWin(){
+  const bonus=G.level*100+Math.floor(G.tLeft)*6;
+  G.score+=bonus;if(G.score>G.best)G.best=G.score;
+  document.getElementById('win-score').textContent=G.score;
+  document.getElementById('win-bonus').textContent='+'+bonus;
+  const msgs=['Great job!','Keep it up!','On fire!','Incredible!','Unstoppable!'];
+  document.getElementById('win-msg').textContent=msgs[Math.min(G.level-1,msgs.length-1)];
+  document.getElementById('ov-win').classList.add('on');
+}
+
+function showLose(){
+  document.getElementById('lose-score').textContent=G.score;
+  document.getElementById('lose-best').textContent=G.best;
+  document.getElementById('ov-lose').classList.add('on');
+}
+
+function nextLevel(){G.level++;buildLevel();}
+function retryLevel(){G.score=0;buildLevel();}
+function goMenu(){clearInterval(G.ticker);document.getElementById('ov-win').classList.remove('on');document.getElementById('ov-lose').classList.remove('on');showScr('scr-menu');}
+
+let toastTmr;
+function toast(msg,color){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.borderLeftColor=color||'var(--teal)';
+  t.classList.add('show');clearTimeout(toastTmr);toastTmr=setTimeout(()=>t.classList.remove('show'),1100);
+}
+
+initMenu();
+</script>
+</body>
+</html>
